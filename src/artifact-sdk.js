@@ -115,6 +115,8 @@ export function isNativeInteractiveControl(el) {
 
 export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNativeInteractiveControl) {
   let annotationMode = true;
+  let showAnnotationMarkers = true;
+  const annotatedSelectors = new Set(); // Track which elements have annotations
   let hovered = null;
   let selected = null;
   let ignoreNextClick = false;
@@ -277,6 +279,34 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
   function clearTextHighlight() {
     if (!shadow) return;
     for (const el of [...shadow.querySelectorAll(".lavish-text-highlight")]) el.remove();
+  }
+
+  function renderAnnotationMarkers() {
+    if (!shadow) return;
+    // Clear existing markers
+    for (const el of [...shadow.querySelectorAll(".lavish-annotation-marker")]) el.remove();
+
+    if (!showAnnotationMarkers) return;
+
+    // Render markers for each annotated element
+    for (const selector of annotatedSelectors) {
+      try {
+        const el = document.querySelector(selector);
+        if (!el) continue;
+
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+
+        const marker = document.createElement("div");
+        marker.className = "lavish-annotation-marker";
+        marker.style.left = (rect.right - 8) + "px";
+        marker.style.top = (rect.top + 2) + "px";
+        marker.title = "Annotation on this element";
+        shadow.appendChild(marker);
+      } catch (e) {
+        // Selector might be invalid, skip
+      }
+    }
   }
 
   function highlightTextRange(range) {
@@ -676,7 +706,7 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
 
     shadow = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
-    style.textContent = `:host{all:initial;position:fixed;z-index:2147483647;left:0;top:0;color-scheme:dark;--ink-900:#0f1115;--ink-800:#11141a;--ink-700:#171a21;--ink-600:#1c212b;--steel-700:#2a2f3a;--steel-600:#303745;--steel-500:#3c4557;--steel-400:#8c96aa;--steel-300:#aeb6c6;--steel-200:#b9c0cf;--steel-100:#d8deea;--cream-50:#fffbf3;--cream-100:#f7f3ea;--cream-200:#e8e1cf;--brass-500:#f4c95d;--brass-400:#ffd877;--brass-ink:#17130a;--bg:var(--ink-900);--bg-panel:var(--ink-800);--bg-elevated:var(--ink-600);--fg:var(--cream-100);--fg-faint:var(--steel-300);--border:var(--steel-600);--accent:#f4c95d;--accent-hover:#ffd877;--font-sans:Geist,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--radius-md:10px;--radius-xl:14px;--shadow-floating:0 20px 70px rgba(0,0,0,.35);font-family:var(--font-sans)}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.lavish-text-highlight{position:fixed;pointer-events:none;background:rgba(244,201,93,.28);border-radius:2px;box-shadow:0 0 0 1px rgba(244,201,93,.45)}.lavish-annotation-card{position:fixed;width:min(320px,calc(100vw - 24px));padding:12px;border-radius:var(--radius-xl);background:var(--bg-panel);color:var(--fg);border:1px solid var(--accent);box-shadow:var(--shadow-floating);font:14px/1.4 var(--font-sans)}.lavish-heading{font-weight:700;margin-bottom:6px}.lavish-annotation-card textarea{width:100%;min-height:86px;resize:vertical;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:9px;font:inherit;font-family:var(--font-sans)}.lavish-annotation-card textarea::placeholder{color:var(--fg-faint)}.lavish-annotation-card .lavish-hint{margin-top:6px;font-size:11px;color:var(--fg-faint)}.lavish-annotation-card .lavish-row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}.lavish-annotation-card button{border:0;border-radius:var(--radius-md);padding:8px 10px;font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer}.lavish-annotation-card button:active{opacity:.85}.lavish-annotation-card .lavish-send{background:var(--accent);color:var(--brass-ink)}.lavish-annotation-card .lavish-send:hover{background:var(--accent-hover)}.lavish-annotation-card .lavish-cancel{background:var(--steel-700);color:var(--fg)}`;
+    style.textContent = `:host{all:initial;position:fixed;z-index:2147483647;left:0;top:0;color-scheme:dark;--ink-900:#0f1115;--ink-800:#11141a;--ink-700:#171a21;--ink-600:#1c212b;--steel-700:#2a2f3a;--steel-600:#303745;--steel-500:#3c4557;--steel-400:#8c96aa;--steel-300:#aeb6c6;--steel-200:#b9c0cf;--steel-100:#d8deea;--cream-50:#fffbf3;--cream-100:#f7f3ea;--cream-200:#e8e1cf;--brass-500:#f4c95d;--brass-400:#ffd877;--brass-ink:#17130a;--bg:var(--ink-900);--bg-panel:var(--ink-800);--bg-elevated:var(--ink-600);--fg:var(--cream-100);--fg-faint:var(--steel-300);--border:var(--steel-600);--accent:#f4c95d;--accent-hover:#ffd877;--font-sans:Geist,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--radius-md:10px;--radius-xl:14px;--shadow-floating:0 20px 70px rgba(0,0,0,.35);font-family:var(--font-sans)}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.lavish-text-highlight{position:fixed;pointer-events:none;background:rgba(244,201,93,.28);border-radius:2px;box-shadow:0 0 0 1px rgba(244,201,93,.45)}.lavish-annotation-marker{position:fixed;width:6px;height:6px;background:var(--accent);border-radius:50%;pointer-events:auto;cursor:pointer;box-shadow:0 0 0 2px var(--bg);transition:all 200ms ease}.lavish-annotation-marker:hover{transform:scale(1.5);box-shadow:0 0 0 3px var(--bg),0 0 8px var(--accent)}.lavish-annotation-card{position:fixed;width:min(320px,calc(100vw - 24px));padding:12px;border-radius:var(--radius-xl);background:var(--bg-panel);color:var(--fg);border:1px solid var(--accent);box-shadow:var(--shadow-floating);font:14px/1.4 var(--font-sans)}.lavish-heading{font-weight:700;margin-bottom:6px}.lavish-annotation-card textarea{width:100%;min-height:86px;resize:vertical;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:9px;font:inherit;font-family:var(--font-sans)}.lavish-annotation-card textarea::placeholder{color:var(--fg-faint)}.lavish-annotation-card .lavish-hint{margin-top:6px;font-size:11px;color:var(--fg-faint)}.lavish-annotation-card .lavish-row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}.lavish-annotation-card button{border:0;border-radius:var(--radius-md);padding:8px 10px;font-family:var(--font-sans);font-size:13px;font-weight:700;cursor:pointer}.lavish-annotation-card button:active{opacity:.85}.lavish-annotation-card .lavish-send{background:var(--accent);color:var(--brass-ink)}.lavish-annotation-card .lavish-send:hover{background:var(--accent-hover)}.lavish-annotation-card .lavish-cancel{background:var(--steel-700);color:var(--fg)}`;
     shadow.appendChild(style);
     return shadow;
   }
@@ -779,6 +809,18 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
           }
         }
       }
+    }
+    if (msg.type === "lavish:setAnnotationMarkers") {
+      showAnnotationMarkers = !!msg.enabled;
+      renderAnnotationMarkers();
+    }
+    if (msg.type === "lavish:updateAnnotations") {
+      const selectors = Array.isArray(msg.selectors) ? msg.selectors : [];
+      annotatedSelectors.clear();
+      for (const sel of selectors) {
+        annotatedSelectors.add(sel);
+      }
+      renderAnnotationMarkers();
     }
   });
 

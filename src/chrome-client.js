@@ -24,6 +24,9 @@ const moreButton = /** @type {HTMLButtonElement} */ (document.getElementById("mo
 const moreMenu = /** @type {HTMLDivElement} */ (document.getElementById("moreMenu"));
 const reloadArtifactButton = /** @type {HTMLButtonElement} */ (document.getElementById("reloadArtifact"));
 const copySnapshotButton = /** @type {HTMLButtonElement} */ (document.getElementById("copySnapshot"));
+const exportAnnotationsButton = /** @type {HTMLButtonElement} */ (document.getElementById("exportAnnotations"));
+const importAnnotationsButton = /** @type {HTMLButtonElement} */ (document.getElementById("importAnnotations"));
+const annotationFileInput = /** @type {HTMLInputElement} */ (document.getElementById("annotationFileInput"));
 const endButton = /** @type {HTMLButtonElement} */ (document.getElementById("end"));
 const copyPathButton = /** @type {HTMLButtonElement} */ (document.getElementById("copyPath"));
 const copyHint = /** @type {HTMLSpanElement} */ (document.getElementById("copyHint"));
@@ -39,6 +42,7 @@ const sendHint = /** @type {HTMLSpanElement} */ (document.getElementById("sendHi
 const artifactSrc = frame.dataset.artifactSrc || frame.getAttribute?.("data-artifact-src") || frame.src || "";
 
 const queued = loadQueuedPrompts();
+const qna = {}; // Store Q&A threads by queueKey: { questions: [{q, a}], lastElement: selector }
 let annotation = true;
 let ended = false;
 let agentPresence = "waiting";
@@ -99,6 +103,75 @@ function persistQueuedPrompts() {
   } catch {
     // The in-memory queue still works if browser storage is unavailable.
   }
+}
+
+function exportAnnotations() {
+  const exportData = {
+    file: filePath,
+    timestamp: new Date().toISOString(),
+    annotations: queued.map(stripInternalPromptFields),
+    chatHistory: document.querySelectorAll("#chatLog .chat-item"),
+  };
+  const jsonStr = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `annotations-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  addChat("agent", "Exported annotations to file.");
+}
+
+function importAnnotations(fileContent) {
+  try {
+    const data = JSON.parse(fileContent);
+    if (!Array.isArray(data.annotations)) {
+      addChat("agent", "Invalid annotations file format.");
+      return;
+    }
+    queued.length = 0;
+    queued.push(...data.annotations);
+    persistQueuedPrompts();
+    render();
+    addChat("agent", `Imported ${data.annotations.length} annotations.`);
+  } catch (e) {
+    addChat("agent", "Failed to import annotations: " + e.message);
+  }
+}
+
+function handleAnnotationImport(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => importAnnotations(e.target?.result || "");
+  reader.readAsText(file);
+}
+
+function queueQuestion(queueKey, question, selector) {
+  if (!qna[queueKey]) {
+    qna[queueKey] = { questions: [], lastElement: selector, converted: false };
+  }
+  qna[queueKey].questions.push({ q: question, a: null });
+  // Simulate agent response (in production, this would come from the agent)
+  setTimeout(() => {
+    const lastQA = qna[queueKey].questions[qna[queueKey].questions.length - 1];
+    if (lastQA) {
+      lastQA.a = "Based on the context, " + question.slice(0, 30) + "..."; // Placeholder
+      render();
+    }
+  }, 400);
+  render();
+}
+
+function convertQAToPrompt(queueKey) {
+  const thread = qna[queueKey];
+  if (!thread) return;
+  const context = thread.questions.map((qa) => `Q: ${qa.q}\nA: ${qa.a}`).join("\n\n");
+  const prompt = `Based on this discussion:\n\n${context}\n\nMake the appropriate changes.`;
+  enqueuePrompt({ prompt, selector: thread.lastElement, tag: "prompt" });
+  thread.converted = true;
+  render();
 }
 
 function render() {
@@ -575,6 +648,15 @@ chatInput.addEventListener("input", hideSendHint);
 copyPathButton.onclick = copyFilePath;
 reloadArtifactButton.onclick = reloadArtifact;
 copySnapshotButton.onclick = copyDomSnapshot;
+exportAnnotationsButton.onclick = () => {
+  closeMenus();
+  exportAnnotations();
+};
+importAnnotationsButton.onclick = () => {
+  closeMenus();
+  annotationFileInput.click();
+};
+annotationFileInput.onchange = handleAnnotationImport;
 endButton.onclick = () => {
   closeMenus();
   endSession();
