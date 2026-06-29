@@ -179,6 +179,35 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
     return path;
   }
 
+  function nodeAtPath(el, path) {
+    let node = el;
+    for (const index of path) {
+      if (index >= 0 && index < node.childNodes.length) {
+        node = node.childNodes[index];
+      } else {
+        return null;
+      }
+    }
+    return node;
+  }
+
+  function reconstructRange(target) {
+    if (target.type !== "text-range" || !target.start || !target.end) return null;
+
+    const startEl = document.querySelector(target.start.selector);
+    const endEl = document.querySelector(target.end.selector);
+    if (!startEl || !endEl) return null;
+
+    const startNode = nodeAtPath(startEl, target.start.path);
+    const endNode = nodeAtPath(endEl, target.end.path);
+    if (!startNode || !endNode) return null;
+
+    const range = document.createRange();
+    range.setStart(startNode, target.start.offset);
+    range.setEnd(endNode, target.end.offset);
+    return range;
+  }
+
   function rangeBoundary(node, offset) {
     const el = closestElement(node);
     return {
@@ -738,6 +767,18 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
     }
     if (msg.type === "lavish:restoreScroll") {
       window.scrollTo(Number(msg.x) || 0, Number(msg.y) || 0);
+    }
+    if (msg.type === "lavish:restoreHighlights") {
+      const prompts = Array.isArray(msg.prompts) ? msg.prompts : [];
+      for (const prompt of prompts) {
+        const target = prompt.target;
+        if (target && target.type === "text-range") {
+          const range = reconstructRange(target);
+          if (range && !range.collapsed) {
+            highlightTextRange(range);
+          }
+        }
+      }
     }
   });
 

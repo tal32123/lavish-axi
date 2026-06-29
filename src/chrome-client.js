@@ -591,6 +591,11 @@ frame.addEventListener("load", () => {
   postToFrame({ type: "lavish:setAnnotationMode", enabled: annotation && !ended });
   // Replay the pre-reload scroll position so hot reloads don't jump the artifact to the top.
   postToFrame({ type: "lavish:restoreScroll", x: lastScroll.x, y: lastScroll.y });
+  // Restore text-range highlights from queued prompts
+  const textRangePrompts = queued.filter((p) => p.target?.type === "text-range");
+  if (textRangePrompts.length > 0) {
+    postToFrame({ type: "lavish:restoreHighlights", prompts: textRangePrompts });
+  }
 });
 
 initializeLayoutGate();
