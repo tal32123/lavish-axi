@@ -622,6 +622,14 @@ const chromeIcons = {
   ),
   send: chromeIcon('<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/>', 14),
   caret: chromeIcon('<path d="m6 9 6 6 6-6"/>', 13, 2),
+  download: chromeIcon(
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    15,
+  ),
+  upload: chromeIcon(
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 6 12 1 7 6"/><line x1="12" y1="1" x2="12" y2="15"/>',
+    15,
+  ),
 };
 
 // Display the path with the home directory shortened to "~", split so the directory part can

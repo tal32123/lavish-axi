@@ -747,7 +747,7 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
       heading +
       '</div><textarea placeholder="' +
       placeholder +
-      '"></textarea><div class="lavish-hint">Enter to queue &middot; ' +
+      '"></textarea><div style="margin-top:6px;font-size:11px;display:flex;align-items:center;gap:6px"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--fg-faint)"><input type="checkbox" class="lavish-question-toggle" style="cursor:pointer;width:14px;height:14px"><span>Question (multi-turn Q&A)</span></label></div><div class="lavish-hint">Enter to queue &middot; ' +
       (/Mac|iP(hone|ad|od)/.test(navigator.platform) ? "⌘" : "Ctrl") +
       '+Enter to send now</div><div class="lavish-row"><button class="lavish-cancel" type="button">Cancel</button><button class="lavish-send" type="button">Queue</button></div>';
     root.appendChild(card);
@@ -760,12 +760,16 @@ export function createArtifactSdk(deriveQueueKey, isNativeInteractive = isNative
     const textarea = /** @type {HTMLTextAreaElement | null} */ (card.querySelector("textarea"));
     const cancelButton = /** @type {HTMLButtonElement | null} */ (card.querySelector(".lavish-cancel"));
     const sendButton = /** @type {HTMLButtonElement | null} */ (card.querySelector(".lavish-send"));
+    const questionToggle = /** @type {HTMLInputElement | null} */ (card.querySelector(".lavish-question-toggle"));
     if (!textarea || !cancelButton || !sendButton) return;
 
     cancelButton.onclick = closeCard;
     sendButton.onclick = () => {
-      const prompt = textarea.value.trim();
-      if (prompt) queuePrompt(prompt, { ...c, queueKey: "" });
+      const text = textarea.value.trim();
+      if (text) {
+        const isQuestion = questionToggle?.checked || false;
+        queuePrompt(text, { ...c, queueKey: "", tag: isQuestion ? "question" : "prompt" });
+      }
       closeCard();
     };
     textarea.addEventListener("keydown", (event) => {
